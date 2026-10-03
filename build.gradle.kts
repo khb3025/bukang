@@ -35,9 +35,15 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-kafka-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-security-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
+
 	testCompileOnly("org.projectlombok:lombok")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 	testAnnotationProcessor("org.projectlombok:lombok")
+
+	// 강의 교안 ElasticSearch TDD의존성
+	testImplementation(platform("org.testcontainers:testcontainers-bom:1.19.8"))
+	testImplementation("org.testcontainers:junit-jupiter")
+	testImplementation("org.testcontainers:testcontainers-elasticsearch")
 }
 
 // 캠퍼스 핵데이 Java 코딩 컨벤션 검사 (규칙 파일은 원격 저장소에서 직접 참조)
