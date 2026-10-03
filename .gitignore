@@ -36,6 +36,9 @@ out/
 ### VS Code ###
 .vscode/
 
+### MCP ###
+/.shrimp_data/
+
 ### Env ###
 .env
 .env.*
