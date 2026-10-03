@@ -44,6 +44,13 @@ dependencies {
 	testImplementation(platform("org.testcontainers:testcontainers-bom:1.19.8"))
 	testImplementation("org.testcontainers:junit-jupiter")
 	testImplementation("org.testcontainers:testcontainers-elasticsearch")
+
+	// QueryDSL (Jakarta 버전, 버전은 Spring Boot BOM의 querydsl.version 사용)
+	val querydslVersion = dependencyManagement.importedProperties["querydsl.version"]
+	implementation("com.querydsl:querydsl-jpa:${querydslVersion}:jakarta")
+	annotationProcessor("com.querydsl:querydsl-apt:${querydslVersion}:jakarta")
+	annotationProcessor("jakarta.annotation:jakarta.annotation-api")
+	annotationProcessor("jakarta.persistence:jakarta.persistence-api")
 }
 
 // 캠퍼스 핵데이 Java 코딩 컨벤션 검사 (규칙 파일은 원격 저장소에서 직접 참조)
@@ -60,4 +67,15 @@ checkstyle {
 
 tasks.withType<Test> {
 	useJUnitPlatform()
+}
+
+// QueryDSL Q클래스 생성 위치 (javac가 같은 컴파일 단계에서 함께 컴파일하므로 sourceSets 등록은 하지 않는다)
+val querydslDir = layout.buildDirectory.dir("generated/querydsl")
+
+tasks.compileJava {
+	options.generatedSourceOutputDirectory = querydslDir
+}
+
+tasks.clean {
+	delete(querydslDir)
 }
