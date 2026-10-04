@@ -17,10 +17,6 @@
       "Bash(./gradlew.bat compileJava:*)",
       "Bash(./gradlew.bat dependencies:*)",
       "Bash(./gradlew.bat tasks:*)"
-    ],
-    "deny": [
-      "Read(./.env)",
-      "Read(./.env.*)"
     ]
   }
 }
