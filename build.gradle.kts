@@ -19,26 +19,43 @@ repositories {
 }
 
 dependencies {
-	implementation("org.springframework.boot:spring-boot-h2console")
-	implementation("org.springframework.boot:spring-boot-starter-data-elasticsearch")
-	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-	implementation("org.springframework.boot:spring-boot-starter-kafka")
-	implementation("org.springframework.boot:spring-boot-starter-security")
-	implementation("org.springframework.boot:spring-boot-starter-webmvc")
-	compileOnly("org.projectlombok:lombok")
-	developmentOnly("org.springframework.boot:spring-boot-devtools")
-	runtimeOnly("com.h2database:h2")
-	runtimeOnly("com.mysql:mysql-connector-j")
+
+	implementation("org.springframework.boot:spring-boot-h2console") // h2 콘솔
+	implementation("org.springframework.boot:spring-boot-starter-data-elasticsearch") // elastic search
+	implementation("org.springframework.boot:spring-boot-starter-data-jpa") // dataJpa
+	implementation("org.springframework.boot:spring-boot-starter-kafka") // kafka
+	implementation("org.apache.kafka:kafka-streams") // kafka topic join
+	implementation("org.springframework.boot:spring-boot-starter-security") // spring security
+	implementation("org.springframework.boot:spring-boot-starter-webmvc") // spring-web
+	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0") //swagger and openapi
+	implementation("org.springframework.boot:spring-boot-starter-data-redis") // redis
+
+	// JWT
+	implementation("io.jsonwebtoken:jjwt-api:0.13.0")
+	runtimeOnly("io.jsonwebtoken:jjwt-impl:0.13.0")
+	runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.13.0")
+
+	compileOnly("org.projectlombok:lombok") // lombok
 	annotationProcessor("org.projectlombok:lombok")
+	testCompileOnly("org.projectlombok:lombok")
+	testAnnotationProcessor("org.projectlombok:lombok")
+
+	developmentOnly("org.springframework.boot:spring-boot-devtools") // dev-tools
+
+
 	testImplementation("org.springframework.boot:spring-boot-starter-data-elasticsearch-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-kafka-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-security-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
+	testImplementation("org.springframework.boot:spring-boot-starter-data-redis-test") // @DataRedisTest 지원
 
-	testCompileOnly("org.projectlombok:lombok")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-	testAnnotationProcessor("org.projectlombok:lombok")
+	runtimeOnly("com.h2database:h2")
+	runtimeOnly("com.mysql:mysql-connector-j")
+
+	// 강의 교안 App 실행시 Docker 재시작
+	runtimeOnly("org.springframework.boot:spring-boot-docker-compose")
 
 	// 강의 교안 ElasticSearch TDD의존성
 	testImplementation(platform("org.testcontainers:testcontainers-bom:1.19.8"))
