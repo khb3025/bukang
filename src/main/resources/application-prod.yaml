@@ -43,6 +43,7 @@ jwt:
 crypto:
   password: ${CRYPTO_PASSWORD}
   salt: ${CRYPTO_SALT}
+  hmac-secret: ${CRYPTO_HMAC_KEY}
 
 logging:
   level:
