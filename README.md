@@ -25,18 +25,48 @@ git config --global user.email "이메일@example.com"
 
 ### 3. 환경변수
 
-`.mcp.json`에는 `${...}` 참조만 있고 실제 값은 없습니다. 필요한 값을 환경변수로 설정합니다.
+`.mcp.json`에는 `${변수:-기본값}` 형태의 참조만 있고 실제 값은 없습니다. MCP 서버를 쓰려면 아래 값을 채워야 합니다.
+`.env` 파일의 값은 `.mcp.json`에 적용되지 않으므로, 아래 두 방법 중 하나로 설정합니다.
 
-| 변수 | 용도 | 필수 |
-|---|---|---|
-| `GITHUB_PERSONAL_ACCESS_TOKEN` | GitHub MCP (이슈, PR 조회) | GitHub MCP를 쓸 때 |
-| `CONTEXT7_API_KEY` | Context7 MCP (라이브러리 문서 조회) | 선택 (없으면 제한된 호출량으로 동작) |
-| `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`, `MYSQL_PASS`, `MYSQL_DB` | MySQL MCP (읽기 전용 조회) | MySQL MCP를 쓸 때 (기본값 `127.0.0.1:3306`, `root`, `bukang`) |
+| 변수 | 용도 | 필수 | 로컬 compose 기준 값 |
+|---|---|---|---|
+| `GITHUB_PERSONAL_ACCESS_TOKEN` | GitHub MCP (이슈, PR 조회) | GitHub MCP를 쓸 때 | 각자 발급한 토큰 |
+| `CONTEXT7_API_KEY` | Context7 MCP (라이브러리 문서 조회) | 선택 (없으면 제한된 호출량으로 동작) | 각자 발급한 키 |
+| `MYSQL_HOST`, `MYSQL_PORT` | MySQL MCP (읽기 전용 조회) | MySQL MCP를 쓸 때 | `127.0.0.1`, `3306` (기본값과 같음) |
+| `MYSQL_USER`, `MYSQL_PASS` | 〃 | 〃 | `bukang2`, `bukang2` |
+| `MYSQL_DB` | 〃 | 〃 | `bukang-db` |
 
-Windows에서는 PowerShell에서 아래처럼 설정하고, 터미널과 IDE를 다시 시작합니다.
+`.mcp.json`의 MySQL 기본값(`root`, 비밀번호 없음, `bukang`)은 지금 `compose.yml`의 DB와 다릅니다.
+설정하지 않으면 MySQL MCP가 연결에 실패하니, 위 표의 값으로 설정합니다.
+
+#### 방법 1. 환경변수로 설정 (권장)
+
+`.mcp.json`을 수정하지 않아도 되고, 토큰이 파일에 남지 않습니다. Windows PowerShell에서 아래처럼 설정한 뒤 **터미널과 IDE를 다시 시작**합니다.
 
 ```powershell
 setx GITHUB_PERSONAL_ACCESS_TOKEN "ghp_..."
+setx MYSQL_USER "bukang2"
+setx MYSQL_PASS "bukang2"
+setx MYSQL_DB "bukang-db"
+```
+
+#### 방법 2. `.mcp.json`의 값을 직접 바꾸기
+
+`${...}` 부분을 실제 값으로 바꿉니다.
+
+```json
+"MYSQL_USER": "bukang2",
+"MYSQL_PASS": "bukang2",
+"MYSQL_DB": "bukang-db",
+```
+
+`.mcp.json`은 저장소에 커밋된 공유 파일입니다. 이렇게 바꾼 내용은 **커밋하지 않습니다.**
+특히 GitHub 토큰 같은 개인 키는 이 방법으로 넣지 말고 방법 1을 사용합니다.
+실수로 커밋되지 않게 하려면 아래 명령으로 로컬 변경을 git이 무시하도록 할 수 있습니다.
+
+```bash
+git update-index --skip-worktree .mcp.json      # 로컬 변경 무시
+git update-index --no-skip-worktree .mcp.json   # 다시 추적 (원격의 .mcp.json 변경을 받을 때)
 ```
 
 ### 4. MCP 서버 승인
