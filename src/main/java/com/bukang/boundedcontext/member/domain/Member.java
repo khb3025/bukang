@@ -31,7 +31,8 @@ public class Member extends SourceMember {
 			getModifyDate(),
 			getUsername(),
 			getNickname(),
-			getEmail()
+			getEmail(),
+			getPhone()
 		);
 	}
 }
