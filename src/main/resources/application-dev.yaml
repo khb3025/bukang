@@ -1,8 +1,8 @@
 spring:
   datasource:
     url: jdbc:mysql://localhost:3306/bukang-db
-    username: bukang2Dev
-    password: bukang2Dev
+    username: bukang2
+    password: bukang2
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
