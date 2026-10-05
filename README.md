@@ -97,6 +97,7 @@ IDE나 `bootRun`으로 앱을 실행하면 Spring Boot가 `compose.yml`의 인�
 
    | 변수 | 값 |
    |---|---|
+   | `CRYPTO_HMAC_KEY` | `openssl rand -base64 32`로 생성 (아래 [민감정보 암호화](#민감정보-암호화) 참고) |
    | `CRYPTO_PASSWORD` | `openssl rand -base64 32`로 생성 |
    | `CRYPTO_SALT` | `openssl rand -hex 8`로 생성 |
    | `MYSQL_USER` / `MYSQL_PASS` / `MYSQL_DB` | `compose.yml`의 `bukang-db` 값과 동일 |
@@ -113,3 +114,74 @@ IDE나 `bootRun`으로 앱을 실행하면 Spring Boot가 `compose.yml`의 인�
    ```
 
 앱 컨테이너는 Docker 내부 서비스 이름(`bukang-db`, `bukang-kafka:29092` 등)으로 인프라에 접속하므로, `.env`의 주소에는 `localhost` 대신 서비스 이름을 사용합니다. 운영 프로파일에서는 Swagger가 비활성화됩니다.
+
+## 민감정보 암호화
+
+복호화가 필요한 개인정보(현재 휴대폰 번호)는 DB에 **AES-256-GCM 암호문**으로 저장합니다.
+그 값으로 조회하거나 중복을 검사해야 하면 **HMAC-SHA256 해시(블라인드 인덱스)**를 별도 컬럼에 함께 저장합니다.
+비밀번호는 복호화할 필요가 없으므로 이 방식이 아니라 `PasswordEncoder`(BCrypt)로 해시합니다.
+
+| 컬럼 | 저장 값 | 용도 |
+|---|---|---|
+| `phone` | AES 암호문 (같은 값도 매번 다른 암호문) | 꺼내서 보여 주거나 발송할 때 (복호화) |
+| `phone_hash` | HMAC 해시 (같은 값이면 항상 같은 해시, unique) | 조회, 중복 검사 (`WHERE phone_hash = ?`) |
+
+### 구성 요소 (`global/config/crypto`)
+
+| 클래스 | 역할 |
+|---|---|
+| `CryptoConfig` | `crypto.password`, `crypto.salt`로 `TextEncryptor`(AES-256-GCM) 빈을 한 번만 생성 |
+| `Base64TextEncryptor` | 암호화 결과(바이트)를 Base64 문자열로 바꿔 DB 컬럼에 저장할 수 있게 함 |
+| `EncryptedStringConverter` | JPA `AttributeConverter`. DB에 저장할 때 암호화하고, 조회할 때 복호화 |
+| `BlindIndexGenerator` | `crypto.hmac-secret`으로 조회용 해시 생성. 필드별 메서드에서 정규화 후 해시 (`generatePhone`은 숫자만 남김) |
+
+### 키 설정
+
+| 설정 키 | dev / test | prod | 생성 명령 |
+|---|---|---|---|
+| `crypto.password` | `application-dev.yaml`, `application-test.yaml` | `.env`의 `CRYPTO_PASSWORD` | `openssl rand -base64 32` |
+| `crypto.salt` | 〃 | `.env`의 `CRYPTO_SALT` | `openssl rand -hex 8` (16진수만 가능) |
+| `crypto.hmac-secret` | 〃 | `.env`의 `CRYPTO_HMAC_KEY` | `openssl rand -base64 32` |
+
+- dev/test 키는 개발용이라 yaml에 들어 있습니다. prod 키는 dev와 **다른 값**으로 만들고 `.env`에만 둡니다.
+- 세 키는 서로 다른 값이어야 합니다. `JWT_SECRET`과도 같은 값을 쓰지 않습니다.
+- `openssl`은 Git Bash에 기본으로 들어 있습니다.
+
+### 새 필드에 적용하는 방법
+
+1. 엔티티 필드에 `@Convert`를 붙입니다. 암호문이 원문보다 길어지므로 컬럼 길이를 넉넉히 잡습니다.
+
+   ```java
+   @Convert(converter = EncryptedStringConverter.class)
+   @Column(length = 255)
+   private String phone;
+   ```
+
+2. 그 값으로 조회하거나 중복을 검사해야 하면 해시 컬럼을 추가하고, `BlindIndexGenerator`에 필드 전용 메서드를 만듭니다.
+   정규화 방식(예: 숫자만 남기기, 소문자로 바꾸기)과 필드 이름 접두사(`"phone:"`)를 필드마다 정합니다.
+
+   ```java
+   @Column(name = "phone_hash", unique = true, length = 64)
+   private String phoneHash;
+   ```
+
+3. 서비스(`app` 계층)에서 해시를 계산해 엔티티에 원문과 함께 넘깁니다. 원문은 평문 그대로 넘기면 저장할 때 자동으로 암호화됩니다.
+
+   ```java
+   String phoneHash = blindIndexGenerator.generatePhone(phone);
+   if (memberRepository.existsByPhoneHash(phoneHash)) {
+   	throw new DuplicatePhoneException("이미 사용 중인 전화번호입니다.");
+   }
+   new Member(username, email, passwordEncoder.encode(password), nickname, phone, phoneHash);
+   ```
+
+4. 값을 바꾸는 메서드도 원문과 해시를 **함께** 받아 둘 다 바꿉니다. 해시는 자동으로 갱신되지 않습니다.
+
+### 주의 사항
+
+- **키를 바꾸면 기존 데이터를 읽을 수 없습니다.** 데이터가 쌓인 뒤에는 세 키 모두 바꾸지 않습니다. prod 키는 `.env` 외에 안전한 곳에도 백업합니다.
+- **암호화한 필드로 직접 조회하지 않습니다.** `findByPhone(...)`은 결과가 나오지 않습니다(암호문이 매번 다름). 반드시 해시 컬럼으로 조회합니다.
+- **엔티티 안에서는 항상 평문입니다.** `getPhone()`은 복호화된 원문을 반환하므로, API 응답 DTO에 그대로 넣거나 로그·예외 메시지에 남기지 않습니다. 화면에 보여 줄 때는 필요하면 마스킹합니다.
+- **native query와 JDBC는 Converter를 거치지 않습니다.** 직접 SQL로 다루면 암호화/복호화가 일어나지 않습니다.
+- **DB를 직접 조회하면 암호문이 보이는 게 정상입니다.**
+- 주민등록번호는 법령 근거 없이 수집할 수 없습니다(개인정보 보호법 제24조의2). 본인 확인이 필요하면 본인인증의 CI 값을 같은 방식으로 저장합니다.
