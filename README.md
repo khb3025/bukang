@@ -4,8 +4,12 @@ Spring Boot 4.1 / Java 25 백엔드 프로젝트입니다.
 
 ## 개발 환경 설정
 
-저장소를 clone한 뒤 각자 컴퓨터에서 한 번씩 해야 하는 설정입니다.
-로그인 정보와 토큰은 저장소에 공유되지 않으므로, 모든 팀원이 직접 설정해야 합니다.
+프로젝트를 받은 뒤(저장소 clone 또는 압축 파일) 각자 컴퓨터에서 한 번씩 해야 하는 설정입니다.
+로그인 정보와 토큰은 프로젝트에 들어 있지 않으므로, 모든 팀원이 직접 설정해야 합니다.
+Windows와 macOS에서 모두 동작하며, 명령이 다른 부분은 따로 적었습니다.
+
+압축 파일로 받았다면 `.git` 폴더가 없으므로 아래의 git 관련 단계(2단계, 3단계의 `git update-index`)는 건너뜁니다.
+macOS에서 `./gradlew` 실행 시 `Permission denied`가 나면 `chmod +x gradlew`를 한 번 실행합니다.
 
 ### 1. 필요한 도구
 
@@ -41,13 +45,24 @@ git config --global user.email "이메일@example.com"
 
 #### 방법 1. 환경변수로 설정 (권장)
 
-`.mcp.json`을 수정하지 않아도 되고, 토큰이 파일에 남지 않습니다. Windows PowerShell에서 아래처럼 설정한 뒤 **터미널과 IDE를 다시 시작**합니다.
+`.mcp.json`을 수정하지 않아도 되고, 토큰이 파일에 남지 않습니다.
+
+**Windows**: PowerShell에서 아래처럼 설정한 뒤 **터미널과 IDE를 다시 시작**합니다.
 
 ```powershell
 setx GITHUB_PERSONAL_ACCESS_TOKEN "ghp_..."
 setx MYSQL_USER "bukang2"
 setx MYSQL_PASS "bukang2"
 setx MYSQL_DB "bukang-db"
+```
+
+**macOS**: `~/.zshrc`에 아래 내용을 추가한 뒤 **새 터미널을 열고, 그 터미널에서 Claude Code를 실행**합니다.
+
+```bash
+export GITHUB_PERSONAL_ACCESS_TOKEN="ghp_..."
+export MYSQL_USER="bukang2"
+export MYSQL_PASS="bukang2"
+export MYSQL_DB="bukang-db"
 ```
 
 #### 방법 2. `.mcp.json`의 값을 직접 바꾸기
@@ -62,16 +77,17 @@ setx MYSQL_DB "bukang-db"
 
 `.mcp.json`은 저장소에 커밋된 공유 파일입니다. 이렇게 바꾼 내용은 **커밋하지 않습니다.**
 특히 GitHub 토큰 같은 개인 키는 이 방법으로 넣지 말고 방법 1을 사용합니다.
-실수로 커밋되지 않게 하려면 아래 명령으로 로컬 변경을 git이 무시하도록 할 수 있습니다.
+git 저장소로 받았다면, 실수로 커밋되지 않게 아래 명령으로 로컬 변경을 git이 무시하도록 할 수 있습니다.
 
 ```bash
 git update-index --skip-worktree .mcp.json      # 로컬 변경 무시
 git update-index --no-skip-worktree .mcp.json   # 다시 추적 (원격의 .mcp.json 변경을 받을 때)
 ```
 
-### 4. MCP 서버 승인
+### 4. MCP 서버
 
-프로젝트 루트에서 Claude Code를 처음 실행하면 `.mcp.json`에 있는 MCP 서버를 사용할지 묻습니다. 승인하면 됩니다.
+`.claude/settings.json`에 `enableAllProjectMcpServers: true`가 있어서, 프로젝트 루트에서 Claude Code를 실행하면
+`.mcp.json`의 MCP 서버가 따로 묻지 않고 모두 켜집니다. 서버는 처음 실행할 때 `npx`로 내려받습니다.
 
 | 서버 | 용도 |
 |---|---|
@@ -175,7 +191,7 @@ IDE나 `bootRun`으로 앱을 실행하면 Spring Boot가 `compose.yml`의 인�
 
 - dev/test 키는 개발용이라 yaml에 들어 있습니다. prod 키는 dev와 **다른 값**으로 만들고 `.env`에만 둡니다.
 - 세 키는 서로 다른 값이어야 합니다. `JWT_SECRET`과도 같은 값을 쓰지 않습니다.
-- `openssl`은 Git Bash에 기본으로 들어 있습니다.
+- `openssl`은 Windows의 Git Bash와 macOS 터미널에 기본으로 들어 있습니다.
 
 ### 새 필드에 적용하는 방법
 
