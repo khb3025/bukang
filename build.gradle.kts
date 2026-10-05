@@ -27,6 +27,7 @@ dependencies {
 	implementation("org.apache.kafka:kafka-streams") // kafka topic join
 	implementation("org.springframework.boot:spring-boot-starter-security") // spring security
 	implementation("org.springframework.boot:spring-boot-starter-webmvc") // spring-web
+	implementation("org.springframework.boot:spring-boot-starter-validation") // @Valid 요청 검증
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0") //swagger and openapi
 	implementation("org.springframework.boot:spring-boot-starter-data-redis") // redis
 
