@@ -216,6 +216,118 @@ IDE나 `bootRun`으로 앱을 실행하면 Spring Boot가 `compose.yml`의 인�
 - **DB를 직접 조회하면 암호문이 보이는 게 정상입니다.**
 - 주민등록번호는 법령 근거 없이 수집할 수 없습니다(개인정보 보호법 제24조의2). 본인 확인이 필요하면 본인인증의 CI 값을 같은 방식으로 저장합니다.
 
+## Kafka 메시지 직렬화 (`JsonConverter`)
+
+Kafka에는 메시지를 **JSON 문자열**로 보냅니다. Kafka 직렬화기는 `StringSerializer`/`StringDeserializer`로 고정하고(`application.yaml`),
+객체와 JSON 사이의 변환은 애플리케이션 코드에서 `JsonConverter`(`global/json`)로 합니다.
+
+### Spring Kafka의 JSON 직렬화기를 쓰지 않는 이유
+
+`application.yaml`의 Kafka 설정 주석에 자세한 내용이 있습니다. 요약하면 다음과 같습니다.
+
+- **역직렬화 실패 시 같은 메시지를 계속 다시 읽습니다 (poison pill).** JSON이 깨진 메시지가 들어오면 역직렬화기(`JacksonJsonDeserializer`)
+  단계에서 예외가 나고, 컨슈머가 같은 offset을 반복해서 읽습니다(`ErrorHandlingDeserializer`로 감싸야 피할 수 있습니다).
+  문자열로 받으면 Kafka 단계에서는 실패하지 않고, 변환 실패는 리스너 코드의 예외로 다룰 수 있습니다.
+- **타입 헤더에 클래스 전체 경로(FQCN)가 들어갑니다.** JSON 직렬화기는 기본적으로 `__TypeId__` 헤더에 FQCN을 넣으므로,
+  `spring.json.type.mapping`으로 논리 이름을 따로 정하지 않으면 메시지 클래스의 패키지만 옮겨도 컨슈머가 역직렬화에 실패합니다.
+
+### `JsonConverter`
+
+| 메서드 | 역할 | 실패 시 |
+|---|---|---|
+| `toJson(Object)` | 객체를 JSON 문자열로 변환 | `IllegalStateException("JSON 변환에 실패했습니다.")` |
+| `fromJson(String, Class<T>)` | JSON 문자열을 지정한 타입의 객체로 변환 | `IllegalArgumentException("JSON 파싱에 실패했습니다.")` |
+
+- Spring Boot가 등록한 `ObjectMapper` 빈을 재사용하므로 `spring.jackson.*` 설정이 API 응답 JSON과 똑같이 적용됩니다.
+- 실패 예외에는 원인 예외(`JacksonException`)가 함께 들어 있어, 로그에서 어느 필드가 왜 실패했는지 확인할 수 있습니다.
+- **`new ObjectMapper()`를 직접 만들지 않습니다.** 만드는 비용이 크고, Spring Boot의 Jackson 설정이 적용되지 않습니다.
+  메시지 클래스에 static `fromJson`/`toJson`을 두는 것도 같은 이유로 피합니다. static 메서드에는 빈을 주입할 수 없습니다.
+
+### 사용 방법
+
+아래 코드의 토픽, 메시지 클래스, 그룹 ID는 사용법을 보여 주기 위한 예시입니다.
+
+1. **메시지 클래스**를 만듭니다. 생산자와 소비자가 함께 쓰므로 `shared` 패키지에 두고, `record`로 만들면 별도 설정 없이 변환됩니다.
+
+   ```java
+   public record EmailSendMessage(
+   	String to,
+   	String subject,
+   	String content
+   ) {
+   }
+   ```
+
+2. **토픽 이름**은 [Kafka 토픽 네이밍 컨벤션](.claude/rules/kafka-topic-convention.md)(`<message-type>.<dataset-name>.<data-name>`)을 따르고,
+   상수로 한곳에 모아 생산자와 소비자가 같은 상수를 참조합니다. 토픽은 `NewTopic` 빈으로 명시적으로 선언합니다.
+
+   ```java
+   public final class KafkaTopics {
+   	public static final String EMAIL_SEND = "queuing.email.send";
+
+   	private KafkaTopics() {
+   	}
+   }
+   ```
+
+   ```java
+   @Bean
+   public NewTopic emailSendTopic() {
+   	return TopicBuilder.name(KafkaTopics.EMAIL_SEND)
+   		.partitions(1)
+   		.build();
+   }
+   ```
+
+3. **보내기:** `toJson`으로 변환한 문자열을 `KafkaTemplate<String, String>`으로 보냅니다.
+
+   ```java
+   @Component
+   @RequiredArgsConstructor
+   public class EmailSendProducer {
+   	private final KafkaTemplate<String, String> kafkaTemplate;
+   	private final JsonConverter jsonConverter;
+
+   	public void send(EmailSendMessage message) {
+   		kafkaTemplate.send(KafkaTopics.EMAIL_SEND, jsonConverter.toJson(message));
+   	}
+   }
+   ```
+
+4. **받기:** 리스너는 `String`으로 받고 `fromJson`으로 변환합니다. `spring.kafka.consumer.group-id`가 설정되어 있지 않으므로
+   `@KafkaListener`에 `groupId`(또는 그룹 ID로도 쓰이는 `id`)를 적습니다.
+
+   ```java
+   @Component
+   @RequiredArgsConstructor
+   public class EmailSendConsumer {
+   	private final JsonConverter jsonConverter;
+
+   	@KafkaListener(topics = KafkaTopics.EMAIL_SEND, groupId = "email")
+   	public void listen(String payload) {
+   		EmailSendMessage message = jsonConverter.fromJson(payload, EmailSendMessage.class);
+   		// ...
+   	}
+   }
+   ```
+
+### 주의 사항
+
+- **Jackson 3 패키지를 씁니다.** Spring Boot 4는 Jackson 3를 쓰므로 `tools.jackson.*`을 import합니다.
+  `com.fasterxml.jackson.databind.ObjectMapper`를 import하면 Spring이 등록한 매퍼와 다른 클래스입니다.
+  단, `@JsonProperty` 같은 애노테이션은 Jackson 3에서도 `com.fasterxml.jackson.annotation` 패키지 그대로입니다.
+- **파싱 실패 메시지는 재시도 후 건너뜁니다.** 리스너에서 예외가 나면 Spring Kafka 기본 에러 핸들러(`DefaultErrorHandler`)가
+  간격 없이 9번 더 시도(총 10번)한 뒤 로그를 남기고 다음 메시지로 넘어갑니다. JSON이 깨진 메시지는 다시 시도해도 실패하므로,
+  필요하면 `DefaultErrorHandler` 빈을 등록해 `addNotRetryableExceptions(IllegalArgumentException.class)`로 재시도하지 않게 하거나
+  DLT(Dead Letter Topic)로 보내도록 설정합니다. `CommonErrorHandler` 빈은 Spring Boot가 리스너 컨테이너에 자동으로 적용합니다.
+- **메시지에 개인정보를 넣을 때 주의합니다.** Kafka 메시지는 브로커에 평문 JSON으로 남고 Kafka Console(http://localhost:8091)에서 그대로 보입니다.
+  `MemberDto`처럼 복호화된 휴대폰 번호가 들어 있는 객체를 통째로 보내지 말고, 필요한 필드만 담은 메시지 클래스를 따로 만듭니다.
+- **메시지 클래스를 바꿀 때는 기존 메시지와의 호환을 생각합니다.** 토픽에는 바뀌기 전 형식의 메시지가 남아 있을 수 있습니다.
+  - 필드를 추가하면 그 필드가 없는 기존 메시지는 `null`로 채워지고, 소비자가 모르는 필드는 무시됩니다.
+    단, 추가하는 필드는 `int`/`long`/`boolean` 같은 기본 타입이 아니라 `Integer`/`Long`/`Boolean` 같은 참조 타입으로 만듭니다.
+    기본 타입 필드에 값이 없으면 파싱에 실패합니다(Jackson 3 기본값 `FAIL_ON_NULL_FOR_PRIMITIVES`).
+  - 필드 이름을 바꾸면 기존 메시지의 그 값을 읽지 못해 `null`이 됩니다. 필드를 지우면 기존 메시지의 그 값은 무시됩니다.
+
 ## API 문서 (Swagger)
 
 ### 접속
