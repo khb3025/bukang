@@ -54,13 +54,17 @@ dependencies {
 	runtimeOnly("com.h2database:h2")
 	runtimeOnly("com.mysql:mysql-connector-j")
 
-	// 강의 교안 App 실행시 Docker 재시작
-	runtimeOnly("org.springframework.boot:spring-boot-docker-compose")
+	// 강의 교안 App 실행시 Docker 재시작 (bootRun/IDE 실행에만 포함, 운영 jar에서는 제외)
+	developmentOnly("org.springframework.boot:spring-boot-docker-compose")
 
-	// 강의 교안 ElasticSearch TDD의존성
-	testImplementation(platform("org.testcontainers:testcontainers-bom:1.19.8"))
-	testImplementation("org.testcontainers:junit-jupiter")
+	// 강의 교안 ElasticSearch TDD의존성 (BOM 관리 버전)
+	testImplementation("org.springframework.boot:spring-boot-testcontainers") // @ServiceConnection
+	testImplementation("org.testcontainers:testcontainers-junit-jupiter")    // @Testcontainers, @Container
 	testImplementation("org.testcontainers:testcontainers-elasticsearch")
+	// 필요해질 때 추가 (테스트 시 임시 컨테이너 생성)
+	// testImplementation("org.testcontainers:testcontainers-kafka")
+	// testImplementation("org.testcontainers:testcontainers-mysql")
+	// testImplementation("com.redis:testcontainers-redis")  // Boot BOM 관리 (2.2.4)
 
 	// QueryDSL (Jakarta 버전, 버전은 Spring Boot BOM의 querydsl.version 사용)
 	val querydslVersion = dependencyManagement.importedProperties["querydsl.version"]
