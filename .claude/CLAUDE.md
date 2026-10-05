@@ -48,3 +48,8 @@ Spring Boot 4의 모듈화된 스타터를 사용합니다. 테스트 지원도 
 
 - `java-convention.md`: Java 코딩 컨벤션 (캠퍼스 핵데이) 및 Checkstyle 검사
 - `git-commit-convention.md`: 커밋 메시지 규칙 (Conventional Commits 1.0.0)
+- `swagger-convention.md`: 컨트롤러와 요청 DTO의 Swagger 애노테이션 규칙 (`in`, `dto` 패키지 파일 작업 시 로드)
+- `redis-key-convention.md`: Redis 키 네이밍 규칙 (`{엔티티}:{ID}:{속성}`, 콜론 구분)
+- `kafka-topic-convention.md`: Kafka 토픽 네이밍 규칙 (`<message-type>.<dataset-name>.<data-name>`, 계층은 `.`으로만 구분)
+
+컨트롤러에 Swagger 문서를 작성하거나 보완할 때는 `/swagger-annotate` 스킬(`.claude/skills/swagger-annotate`)을 사용합니다.
