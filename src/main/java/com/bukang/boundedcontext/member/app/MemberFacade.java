@@ -35,6 +35,10 @@ public class MemberFacade {
 		).toDto();
 	}
 
+	public boolean existsByUsername(String username) {
+		return memberRepository.existsByUsername(username);
+	}
+
 	public MemberDto login(MemberLoginRequestDto memberLoginRequestDto) {
 		Authentication authentication = authenticationManager.authenticate(
 			new UsernamePasswordAuthenticationToken(

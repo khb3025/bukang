@@ -9,6 +9,8 @@ import com.bukang.boundedcontext.member.domain.Member;
 public interface MemberRepository extends JpaRepository<Member, Integer> {
 	Optional<Member> findByEmail(String email);
 
+	boolean existsByUsername(String username);
+
 	boolean existsByEmail(String email);
 
 	boolean existsByNickname(String nickname);
