@@ -185,3 +185,48 @@ IDE나 `bootRun`으로 앱을 실행하면 Spring Boot가 `compose.yml`의 인�
 - **native query와 JDBC는 Converter를 거치지 않습니다.** 직접 SQL로 다루면 암호화/복호화가 일어나지 않습니다.
 - **DB를 직접 조회하면 암호문이 보이는 게 정상입니다.**
 - 주민등록번호는 법령 근거 없이 수집할 수 없습니다(개인정보 보호법 제24조의2). 본인 확인이 필요하면 본인인증의 CI 값을 같은 방식으로 저장합니다.
+
+## API 문서 (Swagger)
+
+### 접속
+
+| 주소 | 내용 |
+|---|---|
+| http://localhost:8080/swagger-ui.html | Swagger UI (dev 프로파일에서만 열림, prod에서는 비활성화) |
+| http://localhost:8080/v3/api-docs | OpenAPI 문서 원본(JSON) |
+
+### 작성 규칙
+
+컨트롤러와 요청 DTO의 Swagger 애노테이션은 [`.claude/rules/swagger-convention.md`](.claude/rules/swagger-convention.md)를 따릅니다.
+참고 구현은 `boundedcontext/member/in/ApiV1AuthController.java`와 `AuthApiExamples.java`입니다.
+
+- 컨트롤러에 `@Tag`, 엔드포인트마다 `@Operation`과 `@ApiResponses`를 붙입니다.
+- 응답 코드는 그 API가 **실제로 반환하는 코드만** 적습니다. 생성 API의 201은 springdoc이 추론하지 못하므로 직접 명시합니다.
+- 응답 예시는 `{Tag}ApiExamples` 상수 클래스에 모으고, `message`는 코드의 메시지 문자열을 그대로 씁니다.
+  예외 메시지나 검증 메시지를 바꾸면 예시도 함께 바꿉니다.
+- 요청 DTO의 모든 필드에 `@Schema(description, example)`를 붙입니다.
+
+참고 구현에서 따르는 것은 애노테이션 구성 방식뿐입니다. 응답 코드와 에러는 각 컨트롤러의 실제 코드를 기준으로 작성합니다.
+
+### Claude Code 스킬: `/swagger-annotate`
+
+위 규칙대로 Swagger 애노테이션을 작성해 주는 프로젝트 스킬입니다 (`.claude/skills/swagger-annotate`).
+
+```
+/swagger-annotate ApiV1MemberController
+```
+
+슬래시 명령 대신 "ApiV1MemberController에 Swagger 달아줘", "API 문서화해줘"처럼 요청해도 됩니다.
+대상을 적지 않으면 IDE에서 열려 있는 컨트롤러를 대상으로 합니다.
+
+스킬은 다음 순서로 진행합니다.
+
+1. **실제 응답 조사:** 성공 반환 코드, 호출 흐름에서 던지는 예외와 메시지, `GlobalExceptionHandler`의 매핑,
+   요청 검증, `WebConfig`의 인증 필요 여부를 확인합니다.
+2. **작성:** `@Tag`, `@Operation`, `@ApiResponses`, 응답 예시 상수 클래스, 요청 DTO의 `@Schema`를 작성합니다.
+   비즈니스 로직, 매핑 경로, 메서드 시그니처는 바꾸지 않습니다.
+3. **검사:** checkstyle 경고가 0건인지 확인하고, 앱을 띄워 `/v3/api-docs`의 예시가 실제 응답과 같은지 확인합니다.
+   8080을 IDE가 쓰고 있으면 18080 포트로 따로 띄우고, 확인 후 종료합니다.
+4. **보고:** 문서화한 응답 코드와 예시, 바뀐 파일, 조사 중 발견한 문제(핸들러가 없어 500으로 나가는 예외 등)를 알려 줍니다.
+
+스킬은 커밋하지 않습니다. 결과를 확인한 뒤 직접 커밋하거나 커밋을 요청합니다.
