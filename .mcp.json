@@ -2,8 +2,8 @@
   "mcpServers": {
     "context7": {
       "type": "stdio",
-      "command": "cmd",
-      "args": ["/c", "npx", "-y", "@upstash/context7-mcp"],
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"],
       "env": {
         "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY:-}"
       }
@@ -30,8 +30,8 @@
     },
     "shrimp-task-manager": {
       "type": "stdio",
-      "command": "cmd",
-      "args": ["/c", "npx", "-y", "mcp-shrimp-task-manager@1.0.21"],
+      "command": "npx",
+      "args": ["-y", "mcp-shrimp-task-manager@1.0.21"],
       "env": {
         "TEMPLATES_USE": "en",
         "ENABLE_GUI": "false"
@@ -39,8 +39,8 @@
     },
     "mysql": {
       "type": "stdio",
-      "command": "cmd",
-      "args": ["/c", "npx", "-y", "@benborla29/mcp-server-mysql"],
+      "command": "npx",
+      "args": ["-y", "@benborla29/mcp-server-mysql"],
       "env": {
         "MYSQL_HOST": "${MYSQL_HOST:-127.0.0.1}",
         "MYSQL_PORT": "${MYSQL_PORT:-3306}",
