@@ -259,7 +259,7 @@ Kafka에는 메시지를 **JSON 문자열**로 보냅니다. Kafka 직렬화기�
    ```
 
 2. **토픽 이름**은 [Kafka 토픽 네이밍 컨벤션](.claude/rules/kafka-topic-convention.md)(`<message-type>.<dataset-name>.<data-name>`)을 따르고,
-   상수로 한곳에 모아 생산자와 소비자가 같은 상수를 참조합니다. 토픽은 `NewTopic` 빈으로 명시적으로 선언합니다.
+   상수로 한곳에 모아 생산자와 소비자가 같은 상수를 참조합니다. 오타가 나면 오류 없이 다른 토픽이 새로 만들어지기 때문입니다.
 
    ```java
    public final class KafkaTopics {
@@ -270,14 +270,8 @@ Kafka에는 메시지를 **JSON 문자열**로 보냅니다. Kafka 직렬화기�
    }
    ```
 
-   ```java
-   @Bean
-   public NewTopic emailSendTopic() {
-   	return TopicBuilder.name(KafkaTopics.EMAIL_SEND)
-   		.partitions(1)
-   		.build();
-   }
-   ```
+   **토픽은 따로 만들지 않습니다.** 토픽 자동 생성을 허용하므로(브로커 설정, `application.yaml`의 `allow.auto.create.topics`), 처음 메시지를 보내거나 리스너가 구독할 때 브로커가 토픽을 만듭니다.
+   `NewTopic` 빈을 선언할 필요가 없습니다. 자동으로 만들어진 토픽은 브로커 기본값(로컬 Redpanda는 파티션 1개)을 따릅니다.
 
 3. **보내기:** `toJson`으로 변환한 문자열을 `KafkaTemplate<String, String>`으로 보냅니다.
 
@@ -320,6 +314,10 @@ Kafka에는 메시지를 **JSON 문자열**로 보냅니다. Kafka 직렬화기�
   간격 없이 9번 더 시도(총 10번)한 뒤 로그를 남기고 다음 메시지로 넘어갑니다. JSON이 깨진 메시지는 다시 시도해도 실패하므로,
   필요하면 `DefaultErrorHandler` 빈을 등록해 `addNotRetryableExceptions(IllegalArgumentException.class)`로 재시도하지 않게 하거나
   DLT(Dead Letter Topic)로 보내도록 설정합니다. `CommonErrorHandler` 빈은 Spring Boot가 리스너 컨테이너에 자동으로 적용합니다.
+- **토픽 자동 생성은 브로커 설정이 허용해야 동작합니다.** 로컬 Redpanda는 `dev-container` 모드라 켜져 있습니다
+  (`auto_create_topics_enabled=true`). 운영 브로커는 이 저장소 밖에서 관리하므로, 운영 브로커도 자동 생성(`auto.create.topics.enable`)을
+  허용하는지 확인합니다. 꺼져 있으면 토픽이 없다는 오류로 전송이 실패합니다.
+  파티션을 2개 이상으로 늘려야 하는 토픽이 생기면 그 토픽만 `NewTopic` 빈(`TopicBuilder`)으로 선언합니다.
 - **메시지에 개인정보를 넣을 때 주의합니다.** Kafka 메시지는 브로커에 평문 JSON으로 남고 Kafka Console(http://localhost:8091)에서 그대로 보입니다.
   `MemberDto`처럼 복호화된 휴대폰 번호가 들어 있는 객체를 통째로 보내지 말고, 필요한 필드만 담은 메시지 클래스를 따로 만듭니다.
 - **메시지 클래스를 바꿀 때는 기존 메시지와의 호환을 생각합니다.** 토픽에는 바뀌기 전 형식의 메시지가 남아 있을 수 있습니다.
